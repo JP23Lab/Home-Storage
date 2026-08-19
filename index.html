@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B8C86">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Home Storage — เช็คของ เช็ควันหมดอายุ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#EEF7F6;
+    --surface:#FFFFFF;
+    --surface-alt:#F2FAF9;
+    --ink:#0E2E2B;
+    --ink-soft:#5B7975;
+    --line:#DCEDEA;
+    --teal:#0EA5A0;
+    --teal-dark:#0B8C86;
+    --blue:#1E88C7;
+    --grad: linear-gradient(135deg, #0EA5A0 0%, #1E88C7 100%);
+    --danger:#E15A4C;
+    --danger-soft:#FCE6E3;
+    --warn:#EFA23A;
+    --warn-soft:#FBEDD9;
+    --ok:#2FAF87;
+    --ok-soft:#DEF3EA;
+    --neutral-soft:#EAF1F0;
+    --shadow: 0 8px 24px rgba(14,58,54,0.08);
+    --shadow-lg: 0 16px 40px rgba(14,58,54,0.16);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Noto Sans Thai','Segoe UI',sans-serif;
+    min-height:100vh;
+    padding-bottom:100px;
+  }
+  .display{font-family:'Kanit','Noto Sans Thai',sans-serif;}
+  .mono{font-family:'JetBrains Mono',monospace;letter-spacing:0.01em;}
+
+  /* ===== Hero header ===== */
+  header{
+    position:relative;
+    background:var(--grad);
+    padding:22px 16px 20px;
+    border-radius:0 0 28px 28px;
+    overflow:hidden;
+    box-shadow:var(--shadow-lg);
+  }
+  header::before, header::after{
+    content:'';
+    position:absolute; border-radius:50%;
+    filter:blur(2px);
+    opacity:.35;
+    background:radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%);
+  }
+  header::before{ width:180px;height:180px; top:-70px; right:-50px; }
+  header::after{ width:120px;height:120px; bottom:-60px; left:20%; opacity:.22; }
+
+  .top-row{
+    position:relative; z-index:2;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    margin-bottom:16px;
+  }
+  .brand h1{
+    font-size:24px; font-weight:700; margin:0; color:#fff; letter-spacing:-0.01em;
+  }
+  .brand p{
+    margin:3px 0 0; font-size:12.5px; color:rgba(255,255,255,0.85);
+  }
+  .icon-btn{
+    width:40px; height:40px; border-radius:12px;
+    background:rgba(255,255,255,0.18);
+    border:1px solid rgba(255,255,255,0.3);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0;
+  }
+  .icon-btn svg{width:19px;height:19px; stroke:#fff;}
+  .icon-btn:active{transform:scale(0.93);}
+
+  .search-wrap{ position:relative; z-index:2; }
+  .search-wrap svg{
+    position:absolute; left:14px; top:50%; transform:translateY(-50%);
+    width:18px;height:18px; stroke:var(--ink-soft);
+  }
+  #search{
+    width:100%;
+    padding:13px 14px 13px 42px;
+    border-radius:14px;
+    border:none;
+    background:rgba(255,255,255,0.95);
+    box-shadow:var(--shadow);
+    font-size:15px;
+    color:var(--ink);
+    font-family:inherit;
+  }
+  #search:focus{outline:2px solid rgba(255,255,255,0.6);}
+  #search::placeholder{color:#8CA19E;}
+
+  /* ===== Stats ===== */
+  .stats-row{
+    display:flex; gap:10px; padding:16px 16px 0; overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .stats-row::-webkit-scrollbar{display:none;}
+  .stat{
+    flex-shrink:0;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 14px;
+    min-width:96px;
+    box-shadow:var(--shadow);
+  }
+  .stat .num{font-family:'Kanit',sans-serif;font-weight:700;font-size:20px;line-height:1;}
+  .stat .lbl{font-size:11px;color:var(--ink-soft);margin-top:4px;}
+  .stat.danger .num{color:var(--danger);}
+  .stat.warn .num{color:var(--warn);}
+  .stat.teal .num{color:var(--teal-dark);}
+
+  /* ===== chips ===== */
+  .chips{
+    display:flex; gap:8px; overflow-x:auto; padding:14px 16px 2px;
+    scrollbar-width:none;
+  }
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0;
+    display:flex; align-items:center; gap:6px;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    font-size:13px;
+    font-weight:500;
+    color:var(--ink-soft);
+    cursor:pointer;
+    user-select:none;
+    white-space:nowrap;
+    transition:all .15s ease;
+  }
+  .chip.active{
+    background:var(--ink); color:#fff; border-color:var(--ink);
+  }
+  .chip .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .chip .count{
+    font-family:'JetBrains Mono',monospace;
+    opacity:.6; margin-left:1px; font-size:11px;
+  }
+
+  /* ===== List ===== */
+  main{padding:16px;}
+  .sort-row{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:10px; padding:0 2px;
+  }
+  .sort-row span{font-size:12px;color:var(--ink-soft);}
+  select#sortBy{
+    border:none; background:transparent; font-family:'JetBrains Mono',monospace;
+    font-size:12px; color:var(--ink); font-weight:600; padding:4px;
+  }
+
+  .list{display:flex; flex-direction:column; gap:12px;}
+
+  .card{
+    position:relative;
+    background:var(--surface);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    padding:14px 14px 14px 18px;
+    cursor:pointer;
+    border:1px solid var(--line);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .card:active{transform:scale(0.985);}
+  .card::before{
+    content:'';
+    position:absolute; left:0; top:12px; bottom:12px; width:4px;
+    border-radius:3px;
+    background:var(--accent, #94A3A0);
+  }
+  .card-top{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+  }
+  .card-name{font-size:16px; font-weight:600; line-height:1.3;}
+  .card-cat{
+    display:flex; align-items:center; gap:5px;
+    font-size:11.5px; color:var(--ink-soft); margin-top:4px;
+  }
+  .card-cat .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .badge{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; font-weight:600;
+    padding:5px 10px; border-radius:999px; white-space:nowrap; flex-shrink:0;
+  }
+  .badge.danger{background:var(--danger-soft); color:var(--danger);}
+  .badge.warn{background:var(--warn-soft); color:var(--warn);}
+  .badge.ok{background:var(--ok-soft); color:var(--ok);}
+  .badge.plain{background:var(--neutral-soft); color:var(--ink-soft);}
+
+  .card-meta{
+    display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:11px;
+    padding-top:10px; border-top:1px solid var(--line);
+  }
+  .meta-item{display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink);}
+  .meta-item svg{width:13px;height:13px; stroke:var(--ink-soft); flex-shrink:0;}
+  .meta-item b{font-weight:600;}
+  .card-note{font-size:12px; color:var(--ink-soft); margin-top:6px; font-style:italic;}
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--ink-soft);
+  }
+  .empty .mark{
+    width:56px;height:56px;background:var(--surface-alt);border:2px dashed var(--line);
+    border-radius:16px; margin:0 auto 14px; display:flex; align-items:center; justify-content:center;
+  }
+  .empty .mark svg{width:26px;height:26px; stroke:var(--teal);}
+  .empty p{font-size:14px; line-height:1.6; margin:0 0 16px;}
+  .empty button{
+    font-family:inherit; font-weight:600; font-size:14px;
+    background:var(--grad); color:#fff; border:none;
+    padding:12px 22px; border-radius:12px; cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+
+  /* ===== FAB ===== */
+  .fab{
+    position:fixed; right:18px; bottom:24px; z-index:30;
+    width:60px; height:60px; border-radius:18px;
+    background:var(--grad); color:#fff;
+    border:none; box-shadow:0 12px 28px rgba(14,140,134,0.4);
+    font-size:28px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .fab:active{transform:scale(0.94);}
+
+  /* ===== Sheet / Form ===== */
+  .overlay{
+    position:fixed; inset:0; background:rgba(9,32,30,0.45);
+    z-index:40; opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .overlay.show{opacity:1; pointer-events:auto;}
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    background:var(--bg);
+    border-radius:22px 22px 0 0;
+    max-height:88vh; overflow-y:auto;
+    transform:translateY(105%);
+    transition:transform .25s cubic-bezier(.32,.72,0,1);
+    padding:10px 20px calc(24px + env(safe-area-inset-bottom));
+    box-shadow:0 -10px 30px rgba(0,0,0,0.18);
+  }
+  .sheet.show{transform:translateY(0);}
+  .sheet-handle{
+    width:38px;height:4px;background:var(--line);border-radius:3px;
+    margin:6px auto 16px;
+  }
+  .sheet h2{font-size:18px; margin:0 0 18px; font-weight:700;}
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block; font-size:11.5px; font-weight:600; color:var(--ink-soft);
+    margin-bottom:6px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.04em;
+  }
+  .field input, .field select, .field textarea{
+    width:100%; padding:12px 13px; border-radius:12px;
+    border:1.5px solid var(--line); background:var(--surface);
+    font-family:inherit; font-size:15px; color:var(--ink);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--teal);}
+  .field textarea{resize:vertical; min-height:56px;}
+  .row2{display:flex; gap:10px;}
+  .row2 .field{flex:1;}
+  .cat-select{display:flex; flex-wrap:wrap; gap:8px;}
+  .cat-opt{
+    display:flex; align-items:center; gap:6px;
+    padding:8px 13px; border-radius:999px; border:1.5px solid var(--line);
+    background:var(--surface); font-size:13px; cursor:pointer; color:var(--ink-soft); font-weight:500;
+  }
+  .cat-opt .dot{width:8px;height:8px;border-radius:50%;}
+  .cat-opt.sel{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .cat-opt.add{border-style:dashed; color:var(--teal-dark); border-color:var(--teal);}
+  .sheet-actions{
+    display:flex; gap:10px; margin-top:20px;
+  }
+  .btn{
+    flex:1; padding:13px; border-radius:12px; border:none;
+    font-family:inherit; font-weight:600; font-size:15px; cursor:pointer;
+  }
+  .btn-primary{background:var(--grad); color:#fff; box-shadow:var(--shadow);}
+  .btn-danger{background:var(--danger-soft); color:var(--danger);}
+  .btn-ghost{background:transparent; color:var(--ink-soft); border:1.5px solid var(--line);}
+
+  /* ===== category manager ===== */
+  .cat-row{
+    display:flex; align-items:center; gap:10px;
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:14px; padding:11px 12px; margin-bottom:9px;
+  }
+  .cat-row .dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+  .cat-row .name{flex:1; font-size:14.5px; font-weight:500;}
+  .cat-row .count-tag{font-size:11px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace;}
+  .cat-row .act{
+    width:32px;height:32px; border-radius:9px; border:none; background:var(--surface-alt);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .cat-row .act svg{width:15px;height:15px; stroke:var(--ink-soft);}
+  .cat-row .act.del svg{stroke:var(--danger);}
+
+  .cat-edit-box{
+    background:var(--surface); border:1.5px solid var(--teal);
+    border-radius:14px; padding:14px; margin-bottom:9px;
+  }
+  .swatches{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 12px;}
+  .swatch{
+    width:28px;height:28px;border-radius:50%; cursor:pointer; border:2px solid transparent;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .swatch.sel{border-color:var(--ink);}
+  .swatch.sel::after{content:'✓'; color:#fff; font-size:13px; font-weight:700;}
+  .cat-edit-actions{display:flex; gap:8px;}
+  .cat-edit-actions button{
+    flex:1; padding:9px; border-radius:10px; border:none; font-family:inherit; font-weight:600; font-size:13px; cursor:pointer;
+  }
+  #addCatBtn{
+    width:100%; padding:12px; border-radius:14px; border:1.5px dashed var(--teal);
+    background:transparent; color:var(--teal-dark); font-family:inherit; font-weight:600; font-size:14px;
+    cursor:pointer; margin-top:4px;
+  }
+
+  /* ===== sync panel ===== */
+  .sync-status{
+    display:flex; align-items:center; gap:10px;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:14px;
+  }
+  .sync-status .sdot{width:10px;height:10px;border-radius:50%; flex-shrink:0;}
+  .sync-status .sdot.off{background:#C9D6D3;}
+  .sync-status .sdot.on{background:var(--ok);}
+  .sync-status .sdot.warn{background:var(--warn);}
+  .sync-status .stext{flex:1; font-size:13px; line-height:1.5;}
+  .sync-status .stext b{display:block; font-size:13.5px; margin-bottom:1px;}
+  .help-box{
+    background:var(--surface-alt); border:1px dashed var(--line); border-radius:12px;
+    padding:12px 14px; font-size:12.5px; line-height:1.7; color:var(--ink-soft); margin-bottom:14px;
+  }
+  .help-box b{color:var(--ink);}
+  .help-box ol{margin:6px 0 0; padding-left:18px;}
+  .help-box a{color:var(--teal-dark); font-weight:600;}
+  .help-toggle{
+    font-size:12.5px; color:var(--teal-dark); font-weight:600; cursor:pointer;
+    margin:-6px 0 14px; display:inline-block;
+  }
+  .warn-box{
+    background:var(--warn-soft); border:1px solid #F0D6A8; border-radius:12px;
+    padding:12px 14px; font-size:12.5px; line-height:1.6; color:#8A5D14; margin-bottom:14px;
+  }
+  .link-row{display:flex; gap:8px;}
+  .link-row input{flex:1;}
+  .link-row button{flex-shrink:0; padding:0 16px; border-radius:12px; border:none; background:var(--teal); color:#fff; font-weight:600; font-size:13px; cursor:pointer;}
+  .sync-actions{display:flex; flex-direction:column; gap:9px; margin-top:6px;}
+  .sync-actions button{
+    padding:12px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface);
+    font-family:inherit; font-weight:600; font-size:14px; cursor:pointer; color:var(--ink);
+  }
+  .sync-actions button.primary{background:var(--grad); color:#fff; border:none; box-shadow:var(--shadow);}
+  .sync-actions button.danger-text{color:var(--danger); border-color:var(--danger-soft);}
+
+  /* ===== custom confirm/alert modal (native dialogs don't fire in standalone/home-screen mode) ===== */
+  .mini-overlay{
+    position:fixed; inset:0; background:rgba(9,32,30,0.5);
+    z-index:80; opacity:0; pointer-events:none; transition:opacity .18s ease;
+  }
+  .mini-overlay.show{opacity:1; pointer-events:auto;}
+  .mini-modal{
+    position:fixed; left:50%; top:50%; z-index:90;
+    width:min(320px, 86vw);
+    background:var(--surface); border-radius:18px;
+    padding:20px 20px 16px;
+    box-shadow:var(--shadow-lg);
+    transform:translate(-50%,-50%) scale(0.92);
+    opacity:0; pointer-events:none;
+    transition:transform .18s cubic-bezier(.32,.72,0,1), opacity .18s ease;
+  }
+  .mini-modal.show{ transform:translate(-50%,-50%) scale(1); opacity:1; pointer-events:auto; }
+  .mini-modal p{ margin:0 0 16px; font-size:14.5px; line-height:1.6; color:var(--ink); }
+  .mini-modal-actions{ display:flex; gap:10px; }
+  .mini-modal-actions button{
+    flex:1; padding:11px; border-radius:11px; border:none;
+    font-family:inherit; font-weight:600; font-size:14px; cursor:pointer;
+  }
+  .mini-modal-actions .mm-ok{ background:var(--grad); color:#fff; }
+  .mini-modal-actions .mm-cancel{ background:var(--neutral-soft); color:var(--ink-soft); }
+  .mini-modal-actions .mm-danger{ background:var(--danger); color:#fff; }
+
+  /* ===== inline category creation box (replaces prompt()) ===== */
+  .new-cat-box{
+    background:var(--surface); border:1.5px solid var(--teal);
+    border-radius:14px; padding:12px; margin-bottom:10px; width:100%;
+  }
+  .new-cat-box input{
+    width:100%; padding:10px 12px; border-radius:10px; border:1.5px solid var(--line);
+    font-family:inherit; font-size:14px; margin-bottom:10px; color:var(--ink);
+  }
+  .new-cat-box input:focus{outline:none; border-color:var(--teal);}
+
+  @media(min-width:640px){
+    main{max-width:640px; margin:0 auto;}
+    header{max-width:640px; margin:0 auto; border-radius:0 0 28px 28px;}
+    .sheet{max-width:640px; left:50%; transform:translate(-50%,105%); border-radius:22px;}
+    .sheet.show{transform:translate(-50%,0);}
+    .fab{right:calc(50% - 320px + 18px);}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="top-row">
+    <div class="brand">
+      <h1 class="display">Home Storage</h1>
+      <p>เก็บของไว้ที่ไหน ใกล้หมดอายุหรือยัง</p>
+    </div>
+    <div style="display:flex; gap:8px; position:relative; z-index:2;">
+      <button class="icon-btn" id="syncBtn" aria-label="ซิงก์ Google Sheets" style="position:relative;">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+        <span id="syncDotIndicator" style="display:none; position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:#4ADE80; border:1.5px solid rgba(255,255,255,0.9);"></span>
+      </button>
+      <button class="icon-btn" id="settingsBtn" aria-label="จัดการหมวดหมู่">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="search" type="text" placeholder="ค้นหาชื่อของ หรือที่เก็บ เช่น เข็มด้าย, ลิ้นชัก..." autocomplete="off">
+  </div>
+</header>
+
+<div class="stats-row" id="statsRow"></div>
+<div class="chips" id="statusChips"></div>
+<div class="chips" id="catChips"></div>
+
+<main>
+  <div class="sort-row">
+    <span id="resultCount">ทั้งหมด 0 ชิ้น</span>
+    <select id="sortBy">
+      <option value="expiry">เรียง: ใกล้หมดอายุก่อน</option>
+      <option value="name">เรียง: ชื่อ ก-ฮ</option>
+      <option value="location">เรียง: ที่เก็บ</option>
+      <option value="newest">เรียง: เพิ่มล่าสุด</option>
+    </select>
+  </div>
+  <div class="list" id="list"></div>
+</main>
+
+<button class="fab" id="fabAdd" aria-label="เพิ่มของ">+</button>
+
+<div class="overlay" id="overlay"></div>
+
+<!-- item form sheet -->
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <h2 id="sheetTitle">เพิ่มของใหม่</h2>
+  <form id="itemForm">
+    <div class="field">
+      <label>ชื่อของ</label>
+      <input type="text" id="f_name" placeholder="เช่น เข็มด้าย, นมกล่อง, การ์ดสะสม">
+    </div>
+    <div class="field">
+      <label>หมวดหมู่</label>
+      <div class="cat-select" id="catSelect"></div>
+    </div>
+    <div class="field">
+      <label>เก็บไว้ที่ไหน</label>
+      <input type="text" id="f_location" placeholder="เช่น ลิ้นชักเก็บของ ห้องนอน">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>จำนวน</label>
+        <input type="text" id="f_qty" placeholder="เช่น 1 กล่อง">
+      </div>
+      <div class="field">
+        <label>วันหมดอายุ (ถ้ามี)</label>
+        <input type="date" id="f_expiry">
+      </div>
+    </div>
+    <div class="field">
+      <label>โน้ตเพิ่มเติม</label>
+      <textarea id="f_note" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-danger" id="deleteBtn" style="display:none;">ลบ</button>
+      <button type="button" class="btn btn-ghost" id="cancelBtn">ยกเลิก</button>
+      <button type="submit" class="btn btn-primary">บันทึก</button>
+    </div>
+  </form>
+</div>
+
+<!-- category manager sheet -->
+<div class="sheet" id="catSheet">
+  <div class="sheet-handle"></div>
+  <h2>จัดการหมวดหมู่</h2>
+  <div id="catList"></div>
+  <button id="addCatBtn">+ เพิ่มหมวดหมู่ใหม่</button>
+  <div class="sheet-actions">
+    <button type="button" class="btn btn-primary" id="closeCatSheetBtn">เสร็จสิ้น</button>
+  </div>
+</div>
+
+<!-- Google Sheets sync sheet -->
+<div class="sheet" id="syncSheet">
+  <div class="sheet-handle"></div>
+  <h2>ซิงก์กับ Google Sheets</h2>
+  <div id="syncBody"></div>
+  <div class="sheet-actions">
+    <button type="button" class="btn btn-ghost" id="closeSyncSheetBtn">ปิด</button>
+  </div>
+</div>
+
+<div class="mini-overlay" id="miniOverlay"></div>
+<div class="mini-modal" id="miniModal">
+  <p id="miniModalMsg"></p>
+  <div class="mini-modal-actions" id="miniModalActions"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const ITEMS_KEY = "homeStorage.items.v1";
+  const CATS_KEY = "homeStorage.categories.v1";
+
+  const SWATCHES = ["#0EA5A0","#1E88C7","#5B6FD8","#8B5CF6","#EC6BA5","#EFA23A","#E8735A","#64748B"];
+
+  let items = [];
+  let categories = [];
+  let editingId = null;
+  let editingCatId = null; // category currently being edited inline
+  let state = { search:"", status:"all", category:"all", sort:"expiry" };
+
+  function loadItems(){
+    try{ items = JSON.parse(localStorage.getItem(ITEMS_KEY)) || []; }
+    catch(e){ items = []; }
+  }
+  function saveItems(){
+    try{ localStorage.setItem(ITEMS_KEY, JSON.stringify(items)); }
+    catch(e){ appAlert("บันทึกไม่สำเร็จ พื้นที่จัดเก็บอาจเต็ม"); }
+    queueAutoSync();
+  }
+  function loadCategories(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(CATS_KEY));
+      categories = (raw && raw.length) ? raw : defaultCategories();
+    }catch(e){ categories = defaultCategories(); }
+  }
+  function saveCategories(){
+    try{ localStorage.setItem(CATS_KEY, JSON.stringify(categories)); }
+    catch(e){ appAlert("บันทึกไม่สำเร็จ"); }
+    queueAutoSync();
+  }
+  function defaultCategories(){
+    return [
+      { id: uid(), name:"ของกิน", color:"#EFA23A" },
+      { id: uid(), name:"ของใช้", color:"#0EA5A0" },
+      { id: uid(), name:"ของสะสม", color:"#8B5CF6" },
+      { id: uid(), name:"เครื่องมือ/อุปกรณ์", color:"#E8735A" },
+      { id: uid(), name:"เอกสาร", color:"#1E88C7" },
+    ];
+  }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function getCat(id){ return categories.find(c=>c.id===id) || null; }
+
+  function todayZero(){ const d = new Date(); d.setHours(0,0,0,0); return d; }
+
+  function getStatus(item){
+    if(!item.expiry) return { key:"none", label:"ไม่มีวันหมดอายุ", cls:"plain" };
+    const exp = new Date(item.expiry + "T00:00:00");
+    const diff = Math.round((exp - todayZero()) / 86400000);
+    if(diff < 0) return { key:"expired", label:`หมดอายุแล้ว ${Math.abs(diff)} วันก่อน`, cls:"danger", diff };
+    if(diff === 0) return { key:"expired", label:"หมดอายุวันนี้", cls:"danger", diff };
+    if(diff <= 7) return { key:"urgent", label:`ใกล้หมดอายุ อีก ${diff} วัน`, cls:"warn", diff };
+    if(diff <= 30) return { key:"soon", label:`อีก ${diff} วันหมดอายุ`, cls:"warn", diff };
+    return { key:"ok", label:`อีก ${diff} วันหมดอายุ`, cls:"ok", diff };
+  }
+
+  function fmtDate(iso){
+    if(!iso) return "";
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("th-TH", { day:"numeric", month:"short", year:"numeric" });
+  }
+  function escapeHtml(str){
+    return String(str||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+  }
+
+  // ---------- custom confirm/alert (native dialogs are unreliable in standalone/home-screen mode) ----------
+  const miniOverlay = document.getElementById("miniOverlay");
+  const miniModal = document.getElementById("miniModal");
+  const miniModalMsg = document.getElementById("miniModalMsg");
+  const miniModalActions = document.getElementById("miniModalActions");
+
+  function appConfirm(message, danger){
+    return new Promise(resolve=>{
+      miniModalMsg.textContent = message;
+      miniModalActions.innerHTML = `
+        <button type="button" class="mm-cancel" id="mmCancel">ยกเลิก</button>
+        <button type="button" class="${danger ? 'mm-danger' : 'mm-ok'}" id="mmOk">ยืนยัน</button>`;
+      miniOverlay.classList.add("show");
+      miniModal.classList.add("show");
+      function close(result){
+        miniOverlay.classList.remove("show");
+        miniModal.classList.remove("show");
+        miniOverlay.removeEventListener("click", onCancel);
+        resolve(result);
+      }
+      function onOk(){ close(true); }
+      function onCancel(){ close(false); }
+      document.getElementById("mmOk").addEventListener("click", onOk);
+      document.getElementById("mmCancel").addEventListener("click", onCancel);
+      miniOverlay.addEventListener("click", onCancel);
+    });
+  }
+
+  function appAlert(message){
+    return new Promise(resolve=>{
+      miniModalMsg.textContent = message;
+      miniModalActions.innerHTML = `<button type="button" class="mm-ok" id="mmOk" style="flex:1;">ตกลง</button>`;
+      miniOverlay.classList.add("show");
+      miniModal.classList.add("show");
+      function close(){
+        miniOverlay.classList.remove("show");
+        miniModal.classList.remove("show");
+        resolve();
+      }
+      document.getElementById("mmOk").addEventListener("click", close);
+    });
+  }
+
+  // ---------- render chips / stats ----------
+  function renderCatChips(){
+    const wrap = document.getElementById("catChips");
+    const counts = {};
+    items.forEach(it => counts[it.categoryId] = (counts[it.categoryId]||0)+1);
+    let html = `<div class="chip ${state.category==='all'?'active':''}" data-cat="all">ทุกหมวด</div>`;
+    categories.forEach(c=>{
+      if(!counts[c.id]) return;
+      html += `<div class="chip ${state.category===c.id?'active':''}" data-cat="${c.id}"><span class="dot" style="background:${c.color}"></span>${escapeHtml(c.name)} <span class="count">${counts[c.id]}</span></div>`;
+    });
+    const noCat = items.filter(it=>!getCat(it.categoryId)).length;
+    if(noCat) html += `<div class="chip ${state.category==='none'?'active':''}" data-cat="none">ไม่ระบุหมวดหมู่ <span class="count">${noCat}</span></div>`;
+    wrap.innerHTML = html;
+    wrap.querySelectorAll(".chip").forEach(el=>{
+      el.addEventListener("click", ()=>{ state.category = el.dataset.cat; render(); });
+    });
+  }
+
+  function renderStatusChips(){
+    const wrap = document.getElementById("statusChips");
+    const expiredCount = items.filter(it=>getStatus(it).key==="expired").length;
+    const soonCount = items.filter(it=>{ const s=getStatus(it); return s.key==="urgent"||s.key==="soon"; }).length;
+    const defs = [
+      {k:"all", label:"ทั้งหมด", n: items.length},
+      {k:"expired", label:"หมดอายุแล้ว", n: expiredCount},
+      {k:"expiring", label:"ใกล้หมดอายุ", n: soonCount},
+    ];
+    wrap.innerHTML = defs.map(d=>`<div class="chip ${state.status===d.k?'active':''}" data-status="${d.k}">${d.label} <span class="count">${d.n}</span></div>`).join("");
+    wrap.querySelectorAll(".chip").forEach(el=>{
+      el.addEventListener("click", ()=>{ state.status = el.dataset.status; render(); });
+    });
+  }
+
+  function renderStats(){
+    const wrap = document.getElementById("statsRow");
+    const expired = items.filter(it=>getStatus(it).key==="expired").length;
+    const urgent = items.filter(it=>getStatus(it).key==="urgent").length;
+    wrap.innerHTML = `
+      <div class="stat teal"><div class="num mono">${items.length}</div><div class="lbl">ของทั้งหมด</div></div>
+      <div class="stat warn"><div class="num mono">${urgent}</div><div class="lbl">ใกล้หมดใน 7 วัน</div></div>
+      <div class="stat danger"><div class="num mono">${expired}</div><div class="lbl">หมดอายุแล้ว</div></div>
+    `;
+  }
+
+  // ---------- filter + sort ----------
+  function getFiltered(){
+    let list = items.slice();
+    const q = state.search.trim().toLowerCase();
+    if(q){
+      list = list.filter(it =>
+        (it.name||"").toLowerCase().includes(q) ||
+        (it.location||"").toLowerCase().includes(q) ||
+        ((getCat(it.categoryId) && getCat(it.categoryId).name) || "").toLowerCase().includes(q) ||
+        (it.note||"").toLowerCase().includes(q)
+      );
+    }
+    if(state.category === "none"){
+      list = list.filter(it => !getCat(it.categoryId));
+    } else if(state.category !== "all"){
+      list = list.filter(it => it.categoryId === state.category);
+    }
+    if(state.status === "expired"){
+      list = list.filter(it => getStatus(it).key === "expired");
+    } else if(state.status === "expiring"){
+      list = list.filter(it => ["urgent","soon"].includes(getStatus(it).key));
+    }
+    list.sort((a,b)=>{
+      if(state.sort === "name") return a.name.localeCompare(b.name, "th");
+      if(state.sort === "location") return (a.location||"").localeCompare(b.location||"", "th");
+      if(state.sort === "newest") return (b.createdAt||0) - (a.createdAt||0);
+      const sa = getStatus(a), sb = getStatus(b);
+      const aHas = a.expiry ? 0 : 1;
+      const bHas = b.expiry ? 0 : 1;
+      if(aHas !== bHas) return aHas - bHas;
+      if(a.expiry && b.expiry) return sa.diff - sb.diff;
+      return a.name.localeCompare(b.name, "th");
+    });
+    return list;
+  }
+
+  function iconSvg(name){
+    const icons = {
+      location: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+      qty: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>',
+      cal: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    };
+    return icons[name] || "";
+  }
+
+  function render(){
+    renderStats();
+    renderStatusChips();
+    renderCatChips();
+
+    const list = getFiltered();
+    document.getElementById("resultCount").textContent = `พบ ${list.length} ชิ้น`;
+    const listEl = document.getElementById("list");
+
+    if(list.length === 0){
+      listEl.innerHTML = `
+        <div class="empty">
+          <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></div>
+          <p>${items.length===0 ? "ยังไม่มีของในคลัง<br>เริ่มเพิ่มชิ้นแรก แล้วจะหาเจอทุกครั้งที่ต้องการ" : "ไม่พบของที่ค้นหา<br>ลองค้นด้วยคำอื่น หรือเปลี่ยนตัวกรอง"}</p>
+          ${items.length===0 ? '<button id="emptyAddBtn">+ เพิ่มของชิ้นแรก</button>' : ''}
+        </div>`;
+      const btn = document.getElementById("emptyAddBtn");
+      if(btn) btn.addEventListener("click", ()=>openSheet());
+      return;
+    }
+
+    listEl.innerHTML = list.map(it=>{
+      const st = getStatus(it);
+      const cat = getCat(it.categoryId);
+      const color = cat ? cat.color : "#94A3A0";
+      const catName = cat ? cat.name : "ไม่ระบุหมวดหมู่";
+      return `
+      <div class="card" data-id="${it.id}" style="--accent:${color}">
+        <div class="card-top">
+          <div>
+            <div class="card-name">${escapeHtml(it.name)}</div>
+            <div class="card-cat"><span class="dot" style="background:${color}"></span>${escapeHtml(catName)}</div>
+          </div>
+          <div class="badge ${st.cls}">${st.label}</div>
+        </div>
+        <div class="card-meta">
+          <div class="meta-item">${iconSvg('location')}<span>เก็บที่ <b>${escapeHtml(it.location)}</b></span></div>
+          ${it.qty ? `<div class="meta-item">${iconSvg('qty')}<span>${escapeHtml(it.qty)}</span></div>` : ""}
+          ${it.expiry ? `<div class="meta-item">${iconSvg('cal')}<span>${fmtDate(it.expiry)}</span></div>` : ""}
+        </div>
+        ${it.note ? `<div class="card-note">${escapeHtml(it.note)}</div>` : ""}
+      </div>`;
+    }).join("");
+
+    listEl.querySelectorAll(".card").forEach(card=>{
+      card.addEventListener("click", ()=>{
+        const item = items.find(i=>i.id === card.dataset.id);
+        if(item) openSheet(item);
+      });
+    });
+  }
+
+  // ---------- item form / sheet ----------
+  const overlay = document.getElementById("overlay");
+  const sheet = document.getElementById("sheet");
+  const catSelectEl = document.getElementById("catSelect");
+  let selectedCategoryId = null;
+
+  let quickAddingCat = false;
+
+  function renderCatOptions(){
+    if(quickAddingCat){
+      catSelectEl.innerHTML = `
+        <div class="new-cat-box">
+          <input type="text" id="quickCatName" placeholder="ชื่อหมวดหมู่ใหม่ เช่น อุปกรณ์เย็บผ้า">
+          <div class="swatches" id="quickCatSwatches">
+            ${SWATCHES.map((sw,i)=>`<div class="swatch ${i===categories.length % SWATCHES.length ? 'sel':''}" data-color="${sw}" style="background:${sw}"></div>`).join("")}
+          </div>
+          <div class="cat-edit-actions">
+            <button type="button" id="quickCatSave" style="background:var(--teal);color:#fff;border:none;">เพิ่มหมวดหมู่</button>
+            <button type="button" id="quickCatCancel" style="background:var(--neutral-soft);color:var(--ink-soft);border:none;">ยกเลิก</button>
+          </div>
+        </div>`;
+      catSelectEl.querySelectorAll("#quickCatSwatches .swatch").forEach(sw=>{
+        sw.addEventListener("click", ()=>{
+          catSelectEl.querySelectorAll("#quickCatSwatches .swatch").forEach(s=>s.classList.remove("sel"));
+          sw.classList.add("sel");
+        });
+      });
+      document.getElementById("quickCatCancel").addEventListener("click", ()=>{
+        quickAddingCat = false;
+        renderCatOptions();
+      });
+      document.getElementById("quickCatSave").addEventListener("click", ()=>{
+        const name = document.getElementById("quickCatName").value.trim();
+        if(!name){ appAlert("กรอกชื่อหมวดหมู่ก่อน"); return; }
+        const selSwatch = catSelectEl.querySelector("#quickCatSwatches .swatch.sel");
+        const color = selSwatch ? selSwatch.dataset.color : SWATCHES[0];
+        const cat = { id: uid(), name, color };
+        categories.push(cat);
+        saveCategories();
+        selectedCategoryId = cat.id;
+        quickAddingCat = false;
+        renderCatOptions();
+      });
+      setTimeout(()=>{ const el = document.getElementById("quickCatName"); if(el) el.focus(); }, 50);
+      return;
+    }
+    let html = categories.map(c=>`<div class="cat-opt ${c.id===selectedCategoryId?'sel':''}" data-cat="${c.id}"><span class="dot" style="background:${c.color}"></span>${escapeHtml(c.name)}</div>`).join("");
+    html += `<div class="cat-opt add" id="quickAddCat">+ หมวดใหม่</div>`;
+    catSelectEl.innerHTML = html;
+    catSelectEl.querySelectorAll(".cat-opt[data-cat]").forEach(el=>{
+      el.addEventListener("click", ()=>{
+        selectedCategoryId = el.dataset.cat;
+        renderCatOptions();
+      });
+    });
+    document.getElementById("quickAddCat").addEventListener("click", ()=>{
+      quickAddingCat = true;
+      renderCatOptions();
+    });
+  }
+
+  function openSheet(item){
+    editingId = item ? item.id : null;
+    quickAddingCat = false;
+    document.getElementById("sheetTitle").textContent = item ? "แก้ไขของ" : "เพิ่มของใหม่";
+    document.getElementById("f_name").value = item ? item.name : "";
+    document.getElementById("f_location").value = item ? item.location : "";
+    document.getElementById("f_qty").value = item ? (item.qty||"") : "";
+    document.getElementById("f_expiry").value = item ? (item.expiry||"") : "";
+    document.getElementById("f_note").value = item ? (item.note||"") : "";
+    selectedCategoryId = item ? item.categoryId : (categories[0] ? categories[0].id : null);
+    renderCatOptions();
+    document.getElementById("deleteBtn").style.display = item ? "block" : "none";
+    overlay.classList.add("show");
+    sheet.classList.add("show");
+    setTimeout(()=>document.getElementById("f_name").focus(), 150);
+  }
+  function closeSheet(){
+    overlay.classList.remove("show");
+    sheet.classList.remove("show");
+    editingId = null;
+  }
+
+  document.getElementById("fabAdd").addEventListener("click", ()=>openSheet());
+  document.getElementById("cancelBtn").addEventListener("click", closeSheet);
+
+  document.getElementById("itemForm").addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const name = document.getElementById("f_name").value.trim();
+    const location = document.getElementById("f_location").value.trim();
+    if(!name){ appAlert("กรอกชื่อของก่อนนะครับ"); document.getElementById("f_name").focus(); return; }
+    if(!location){ appAlert("กรอกว่าเก็บไว้ที่ไหนก่อนนะครับ"); document.getElementById("f_location").focus(); return; }
+    const data = {
+      name,
+      categoryId: selectedCategoryId,
+      location,
+      qty: document.getElementById("f_qty").value.trim(),
+      expiry: document.getElementById("f_expiry").value || null,
+      note: document.getElementById("f_note").value.trim(),
+    };
+    if(editingId){
+      const idx = items.findIndex(i=>i.id === editingId);
+      if(idx > -1) items[idx] = { ...items[idx], ...data };
+    } else {
+      items.push({ id: uid(), createdAt: Date.now(), ...data });
+    }
+    saveItems();
+    closeSheet();
+    render();
+  });
+
+  document.getElementById("deleteBtn").addEventListener("click", ()=>{
+    if(!editingId) return;
+    appConfirm("ลบของชิ้นนี้ออกจากคลังใช่ไหม?", true).then(ok=>{
+      if(!ok) return;
+      items = items.filter(i=>i.id !== editingId);
+      saveItems();
+      closeSheet();
+      render();
+    });
+  });
+
+  document.getElementById("search").addEventListener("input", (e)=>{
+    state.search = e.target.value;
+    render();
+  });
+  document.getElementById("sortBy").addEventListener("change", (e)=>{
+    state.sort = e.target.value;
+    render();
+  });
+
+  // ---------- category manager sheet ----------
+  const catSheet = document.getElementById("catSheet");
+  const catListEl = document.getElementById("catList");
+  let addingNewCat = false;
+
+  function openCatSheet(){
+    editingCatId = null;
+    addingNewCat = false;
+    renderCatManager();
+    overlay.classList.add("show");
+    catSheet.classList.add("show");
+  }
+  function closeCatSheet(){
+    overlay.classList.remove("show");
+    catSheet.classList.remove("show");
+    editingCatId = null;
+    addingNewCat = false;
+  }
+
+  function renderCatManager(){
+    const counts = {};
+    items.forEach(it => counts[it.categoryId] = (counts[it.categoryId]||0)+1);
+
+    let newBoxHtml = "";
+    if(addingNewCat){
+      newBoxHtml = `
+        <div class="new-cat-box">
+          <input type="text" id="newCatName" placeholder="ชื่อหมวดหมู่ใหม่">
+          <div class="swatches" id="newCatSwatches">
+            ${SWATCHES.map((sw,i)=>`<div class="swatch ${i===categories.length % SWATCHES.length ? 'sel':''}" data-color="${sw}" style="background:${sw}"></div>`).join("")}
+          </div>
+          <div class="cat-edit-actions">
+            <button type="button" id="newCatSave" style="background:var(--teal);color:#fff;border:none;">เพิ่มหมวดหมู่</button>
+            <button type="button" id="newCatCancel" style="background:var(--neutral-soft);color:var(--ink-soft);border:none;">ยกเลิก</button>
+          </div>
+        </div>`;
+    }
+
+    catListEl.innerHTML = newBoxHtml + categories.map(c=>{
+      if(editingCatId === c.id){
+        return `
+        <div class="cat-edit-box" data-editing="${c.id}">
+          <input type="text" class="editCatName" value="${escapeHtml(c.name)}" style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);font-family:inherit;font-size:14px;">
+          <div class="swatches">
+            ${SWATCHES.map(sw=>`<div class="swatch ${sw===c.color?'sel':''}" data-color="${sw}" style="background:${sw}"></div>`).join("")}
+          </div>
+          <div class="cat-edit-actions">
+            <button type="button" class="btn-ghost saveCatBtn" style="background:var(--teal);color:#fff;">บันทึก</button>
+            <button type="button" class="btn-ghost cancelCatBtn" style="background:var(--neutral-soft);color:var(--ink-soft);">ยกเลิก</button>
+          </div>
+        </div>`;
+      }
+      return `
+      <div class="cat-row" data-id="${c.id}">
+        <span class="dot" style="background:${c.color}"></span>
+        <span class="name">${escapeHtml(c.name)}</span>
+        ${counts[c.id] ? `<span class="count-tag">${counts[c.id]} ชิ้น</span>` : ""}
+        <button type="button" class="act editCat" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg></button>
+        <button type="button" class="act del delCat" aria-label="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+      </div>`;
+    }).join("");
+
+    if(addingNewCat){
+      document.getElementById("newCatCancel").addEventListener("click", ()=>{
+        addingNewCat = false;
+        renderCatManager();
+      });
+      document.getElementById("newCatSave").addEventListener("click", ()=>{
+        const name = document.getElementById("newCatName").value.trim();
+        if(!name){ appAlert("กรอกชื่อหมวดหมู่ก่อน"); return; }
+        const selSwatch = document.querySelector("#newCatSwatches .swatch.sel");
+        const color = selSwatch ? selSwatch.dataset.color : SWATCHES[0];
+        categories.push({ id: uid(), name, color });
+        saveCategories();
+        addingNewCat = false;
+        renderCatManager();
+        render();
+      });
+      document.querySelectorAll("#newCatSwatches .swatch").forEach(sw=>{
+        sw.addEventListener("click", ()=>{
+          document.querySelectorAll("#newCatSwatches .swatch").forEach(s=>s.classList.remove("sel"));
+          sw.classList.add("sel");
+        });
+      });
+      setTimeout(()=>{ const el = document.getElementById("newCatName"); if(el) el.focus(); }, 50);
+    }
+
+    catListEl.querySelectorAll(".editCat").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        editingCatId = btn.closest(".cat-row").dataset.id;
+        renderCatManager();
+      });
+    });
+    catListEl.querySelectorAll(".delCat").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const id = btn.closest(".cat-row").dataset.id;
+        const n = counts[id] || 0;
+        const msg = n > 0
+          ? `หมวดนี้มีของอยู่ ${n} ชิ้น หากลบ ของเหล่านั้นจะกลายเป็น "ไม่ระบุหมวดหมู่" ต้องการลบใช่ไหม?`
+          : "ต้องการลบหมวดหมู่นี้ใช่ไหม?";
+        appConfirm(msg, true).then(ok=>{
+          if(!ok) return;
+          categories = categories.filter(c=>c.id !== id);
+          items.forEach(it=>{ if(it.categoryId === id) it.categoryId = null; });
+          saveCategories();
+          saveItems();
+          renderCatManager();
+          render();
+        });
+      });
+    });
+    catListEl.querySelectorAll(".saveCatBtn").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const box = btn.closest(".cat-edit-box");
+        const id = box.dataset.editing;
+        const newName = box.querySelector(".editCatName").value.trim();
+        const selSwatch = box.querySelector(".swatch.sel");
+        const existingCat = getCat(id);
+        const newColor = selSwatch ? selSwatch.dataset.color : ((existingCat && existingCat.color) || SWATCHES[0]);
+        if(!newName){ appAlert("กรุณาใส่ชื่อหมวดหมู่"); return; }
+        const cat = categories.find(c=>c.id===id);
+        if(cat){ cat.name = newName; cat.color = newColor; }
+        saveCategories();
+        editingCatId = null;
+        renderCatManager();
+        render();
+      });
+    });
+    catListEl.querySelectorAll(".cancelCatBtn").forEach(btn=>{
+      btn.addEventListener("click", ()=>{ editingCatId = null; renderCatManager(); });
+    });
+    catListEl.querySelectorAll(".swatch").forEach(sw=>{
+      sw.addEventListener("click", ()=>{
+        sw.parentElement.querySelectorAll(".swatch").forEach(s=>s.classList.remove("sel"));
+        sw.classList.add("sel");
+      });
+    });
+  }
+
+  document.getElementById("settingsBtn").addEventListener("click", openCatSheet);
+  document.getElementById("closeCatSheetBtn").addEventListener("click", closeCatSheet);
+  document.getElementById("addCatBtn").addEventListener("click", ()=>{
+    addingNewCat = true;
+    renderCatManager();
+  });
+
+  overlay.addEventListener("click", ()=>{
+    closeSheet();
+    closeCatSheet();
+  });
+
+  // ==================== Firebase sync ====================
+  // Default Firebase project for this app — already set up, no manual config needed.
+  const DEFAULT_FB_CONFIG = {
+    apiKey: "AIzaSyBna_gLhRF2BSVvi-VsXWUvgV8xVFffKQ0",
+    authDomain: "home-storage-b5647.firebaseapp.com",
+    projectId: "home-storage-b5647",
+    storageBucket: "home-storage-b5647.firebasestorage.app",
+    messagingSenderId: "794188807484",
+    appId: "1:794188807484:web:822cb3d2002936921fb239"
+  };
+  const FB_KEYS = {
+    config: "homeStorage.fb.config",
+    syncCode: "homeStorage.fb.syncCode",
+    autoSync: "homeStorage.fb.autoSync",
+    lastSync: "homeStorage.fb.lastSync",
+  };
+  let fbApp = null;
+  let fbDb = null;
+  let fbDocRef = null;
+  let fbUnsub = null;
+  let syncBusy = false;
+  let autoSyncTimer = null;
+  let fbConnectError = "";
+
+  function getFbConfig(){
+    try{
+      const saved = JSON.parse(localStorage.getItem(FB_KEYS.config) || "null");
+      if(saved) return saved;
+    }catch(e){}
+    return DEFAULT_FB_CONFIG;
+  }
+  function getSyncCode(){ return localStorage.getItem(FB_KEYS.syncCode) || ""; }
+  function isAutoSyncOn(){ return localStorage.getItem(FB_KEYS.autoSync) !== "off"; }
+  function getLastSync(){ return localStorage.getItem(FB_KEYS.lastSync) || ""; }
+  function isConfigured(){ return !!getFbConfig(); }
+
+  function extractBalancedObject(text, fromIdx){
+    const start = text.indexOf("{", fromIdx);
+    if(start === -1) return null;
+    let depth = 0;
+    for(let i = start; i < text.length; i++){
+      if(text[i] === "{") depth++;
+      else if(text[i] === "}"){
+        depth--;
+        if(depth === 0) return text.slice(start, i+1);
+      }
+    }
+    return null;
+  }
+
+  function parseFirebaseConfig(text){
+    text = (text||"").trim();
+    if(!text) return null;
+    // handle the full snippet copied straight from Firebase console
+    // (imports, comments, "const firebaseConfig = {...}", etc.)
+    const marker = text.indexOf("firebaseConfig");
+    let objText = null;
+    if(marker !== -1){
+      objText = extractBalancedObject(text, marker);
+    }
+    if(!objText){
+      // fall back: assume the whole pasted text is (or starts with) the object itself
+      objText = extractBalancedObject(text, 0);
+    }
+    if(!objText) return null;
+    try{
+      const obj = new Function("return (" + objText + ")")();
+      if(obj && obj.apiKey && obj.projectId) return obj;
+      return null;
+    }catch(e){ return null; }
+  }
+
+  function genSyncCode(){
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let out = "";
+    for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
+    return out;
+  }
+
+  function initFirebaseApp(){
+    const cfg = getFbConfig();
+    if(!cfg || !window.firebase){ return false; }
+    try{
+      fbApp = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(cfg);
+      fbDb = firebase.firestore(fbApp);
+      return true;
+    }catch(e){
+      console.error(e);
+      return false;
+    }
+  }
+
+  function connectToCode(code, isNew){
+    if(!initFirebaseApp()){ appAlert("โหลด Firebase ไม่สำเร็จ ตรวจสอบ config อีกครั้ง"); return; }
+    syncBusy = true; fbConnectError = ""; renderSyncBody();
+    fbDocRef = fbDb.collection("homeStorageSync").doc(code);
+    fbDocRef.get().then(snap=>{
+      if(snap.exists && !isNew){
+        const data = snap.data();
+        items = data.items || [];
+        categories = data.categories || [];
+        localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+        localStorage.setItem(CATS_KEY, JSON.stringify(categories));
+        render();
+        return null;
+      }
+      return fbDocRef.set({ items, categories, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }).then(()=>{
+      localStorage.setItem(FB_KEYS.syncCode, code);
+      localStorage.setItem(FB_KEYS.lastSync, new Date().toISOString());
+      subscribeToDoc();
+      syncBusy = false;
+      renderSyncBody();
+    }).catch(err=>{
+      syncBusy = false;
+      fbConnectError = (err && err.message) ? err.message : String(err);
+      renderSyncBody();
+      console.error(err);
+    });
+  }
+
+  function subscribeToDoc(){
+    if(fbUnsub){ fbUnsub(); }
+    fbUnsub = fbDocRef.onSnapshot(snap=>{
+      if(snap.metadata.hasPendingWrites) return;
+      if(!snap.exists) return;
+      const data = snap.data();
+      items = data.items || [];
+      categories = data.categories || [];
+      localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+      localStorage.setItem(CATS_KEY, JSON.stringify(categories));
+      localStorage.setItem(FB_KEYS.lastSync, new Date().toISOString());
+      render();
+      renderSyncBody();
+    }, err=>{
+      fbConnectError = (err && err.message) ? err.message : String(err);
+      renderSyncBody();
+      console.error(err);
+    });
+  }
+
+  function pushToFirebase(){
+    if(!fbDocRef) return Promise.resolve();
+    return fbDocRef.set({ items, categories, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+      .then(()=>{ localStorage.setItem(FB_KEYS.lastSync, new Date().toISOString()); });
+  }
+
+  function queueAutoSync(){
+    if(!isConfigured() || !getSyncCode() || !isAutoSyncOn()) return;
+    if(!fbDocRef){
+      if(!initFirebaseApp()) return;
+      fbDocRef = fbDb.collection("homeStorageSync").doc(getSyncCode());
+      if(!fbUnsub) subscribeToDoc();
+    }
+    clearTimeout(autoSyncTimer);
+    autoSyncTimer = setTimeout(()=>{
+      pushToFirebase().then(()=>renderSyncBody()).catch(err=>console.error(err));
+    }, 900);
+  }
+
+  function disconnectSync(){
+    appConfirm("ยกเลิกการเชื่อมรหัสซิงก์นี้? ข้อมูลในเครื่องจะยังอยู่ แต่จะไม่ซิงก์อัตโนมัติอีก", true).then(ok=>{
+      if(!ok) return;
+      if(fbUnsub){ fbUnsub(); fbUnsub = null; }
+      fbDocRef = null;
+      localStorage.removeItem(FB_KEYS.syncCode);
+      localStorage.removeItem(FB_KEYS.lastSync);
+      renderSyncBody();
+    });
+  }
+
+  function resetFirebaseConfig(){
+    appConfirm("ล้างค่า Firebase ที่ตั้งเองไว้ กลับไปใช้โปรเจกต์เริ่มต้นของแอป?", true).then(ok=>{
+      if(!ok) return;
+      if(fbUnsub){ fbUnsub(); fbUnsub = null; }
+      fbDocRef = null;
+      localStorage.removeItem(FB_KEYS.config);
+      localStorage.removeItem(FB_KEYS.syncCode);
+      localStorage.removeItem(FB_KEYS.lastSync);
+      renderSyncBody();
+    });
+  }
+
+  function fmtSyncTime(iso){
+    if(!iso) return "ยังไม่เคยซิงก์";
+    const d = new Date(iso);
+    return "ซิงก์ล่าสุด " + d.toLocaleDateString("th-TH",{day:"numeric",month:"short"}) + " " + d.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
+  }
+
+  function updateSyncDot(){
+    const dot = document.getElementById("syncDotIndicator");
+    dot.style.display = (isConfigured() && getSyncCode()) ? "block" : "none";
+  }
+
+  function copyToClipboard(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(()=>appAlert("คัดลอกแล้ว")).catch(()=>appAlert(text));
+    } else {
+      appAlert(text);
+    }
+  }
+
+  let showCustomConfigForm = false;
+
+  function renderSyncBody(){
+    const el = document.getElementById("syncBody");
+    updateSyncDot();
+
+    if(showCustomConfigForm){
+      el.innerHTML = `
+        <div class="help-box">
+          <b>ใช้ Firebase project ของตัวเอง (ไม่บังคับ)</b><br>
+          ปกติแอปนี้มี Firebase project เริ่มต้นให้ใช้อยู่แล้ว ไม่ต้องตั้งอะไรเพิ่ม ใช้ตัวเลือกนี้เฉพาะถ้าอยากแยกฐานข้อมูลของตัวเอง
+          <ol>
+            <li>ไปที่ <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebase Console</a> → สร้างโปรเจกต์ใหม่ (ฟรี)</li>
+            <li>เมนูซ้าย → Build → Firestore Database → Create database (เลือก test mode)</li>
+            <li>Project settings (รูปเฟือง) → "Your apps" → กด "&lt;/&gt;" เพิ่มเว็บแอป</li>
+            <li>คัดลอกทั้งก้อนโค้ดที่ได้ (ทั้งไฟล์เลยก็ได้) มาวางด้านล่าง</li>
+          </ol>
+        </div>
+        <div class="field">
+          <label>Firebase config (วางทั้งก้อนที่คัดลอกมา)</label>
+          <textarea id="fbConfigInput" rows="6" placeholder='const firebaseConfig = { apiKey: "...", ... };'></textarea>
+        </div>
+        <div class="sync-actions">
+          <button class="primary" id="saveFbConfigBtn">บันทึกและใช้ project นี้</button>
+          <button id="cancelCustomFbBtn">ยกเลิก</button>
+        </div>`;
+      document.getElementById("saveFbConfigBtn").addEventListener("click", ()=>{
+        const raw = document.getElementById("fbConfigInput").value;
+        const cfg = parseFirebaseConfig(raw);
+        if(!cfg){ appAlert("อ่าน config ไม่ได้ ลองตรวจดูว่าคัดลอกมาครบทั้งก้อนไหม"); return; }
+        localStorage.setItem(FB_KEYS.config, JSON.stringify(cfg));
+        if(fbUnsub){ fbUnsub(); fbUnsub = null; }
+        fbApp = null; fbDb = null; fbDocRef = null;
+        showCustomConfigForm = false;
+        renderSyncBody();
+      });
+      document.getElementById("cancelCustomFbBtn").addEventListener("click", ()=>{
+        showCustomConfigForm = false;
+        renderSyncBody();
+      });
+      return;
+    }
+
+    if(!getSyncCode()){
+      el.innerHTML = `
+        <div class="sync-status"><span class="sdot warn"></span><div class="stext"><b>พร้อมใช้งาน</b>สร้างรหัสซิงก์ใหม่ หรือใส่รหัสจากเครื่องอื่นเพื่อดึงข้อมูลชุดเดียวกัน</div></div>
+        <div class="sync-actions">
+          <button class="primary" id="genCodeBtn" ${syncBusy?'disabled':''}>${syncBusy?'กำลังสร้าง...':'+ สร้างรหัสซิงก์ใหม่'}</button>
+        </div>
+        <div class="field" style="margin-top:14px;">
+          <label>หรือใส่รหัสซิงก์จากเครื่องอื่น</label>
+          <div class="link-row">
+            <input type="text" id="codeInput" placeholder="เช่น K7QX9F" style="text-transform:uppercase;">
+            <button id="joinCodeBtn" ${syncBusy?'disabled':''}>เชื่อม</button>
+          </div>
+        </div>
+        <div class="help-toggle" id="showCustomFbLink">ใช้ Firebase project ของตัวเอง (ขั้นสูง) →</div>
+        ${fbConnectError ? `<div class="warn-box" style="margin-top:12px;">${escapeHtml(fbConnectError)}</div>` : ""}`;
+      document.getElementById("genCodeBtn").addEventListener("click", ()=>{
+        connectToCode(genSyncCode(), true);
+      });
+      document.getElementById("joinCodeBtn").addEventListener("click", ()=>{
+        const v = document.getElementById("codeInput").value.trim().toUpperCase();
+        if(!v){ appAlert("กรอกรหัสซิงก์ก่อน"); return; }
+        connectToCode(v, false);
+      });
+      document.getElementById("showCustomFbLink").addEventListener("click", ()=>{
+        showCustomConfigForm = true;
+        renderSyncBody();
+      });
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="sync-status">
+        <span class="sdot ${syncBusy?'warn':'on'}"></span>
+        <div class="stext"><b>${syncBusy?'กำลังซิงก์...':'เชื่อมต่อแล้ว — ซิงก์แบบเรียลไทม์'}</b>${fmtSyncTime(getLastSync())}</div>
+      </div>
+      <div class="field">
+        <label>รหัสซิงก์ของคุณ (ใส่รหัสนี้ในเครื่องอื่นเพื่อซิงก์ข้อมูลเดียวกัน)</label>
+        <div class="link-row">
+          <input type="text" value="${getSyncCode()}" readonly style="font-family:'JetBrains Mono',monospace; font-weight:700; letter-spacing:0.08em; text-align:center;">
+          <button id="copyCodeBtn">คัดลอก</button>
+        </div>
+      </div>
+      <div class="cat-opt ${isAutoSyncOn()?'sel':''}" id="autoSyncToggle" style="display:inline-flex; margin-bottom:14px;">
+        ${isAutoSyncOn() ? '✓ ซิงก์อัตโนมัติ: เปิดอยู่' : 'ซิงก์อัตโนมัติ: ปิดอยู่'}
+      </div>
+      <div class="sync-actions">
+        <button id="pushNowBtn" ${syncBusy?'disabled':''}>ส่งข้อมูลในเครื่องขึ้นตอนนี้</button>
+        <button class="danger-text" id="disconnectBtn">ยกเลิกการเชื่อมรหัสนี้</button>
+      </div>
+      ${fbConnectError ? `<div class="warn-box" style="margin-top:12px;">${escapeHtml(fbConnectError)}</div>` : ""}`;
+    document.getElementById("copyCodeBtn").addEventListener("click", ()=>copyToClipboard(getSyncCode()));
+    document.getElementById("pushNowBtn").addEventListener("click", ()=>{
+      syncBusy = true; renderSyncBody();
+      pushToFirebase().then(()=>{ syncBusy=false; renderSyncBody(); }).catch(err=>{ syncBusy=false; fbConnectError=(err&&err.message)||String(err); renderSyncBody(); });
+    });
+    document.getElementById("disconnectBtn").addEventListener("click", disconnectSync);
+    document.getElementById("autoSyncToggle").addEventListener("click", ()=>{
+      localStorage.setItem(FB_KEYS.autoSync, isAutoSyncOn() ? "off" : "on");
+      renderSyncBody();
+    });
+
+    if(!fbUnsub){
+      if(initFirebaseApp()){
+        fbDocRef = fbDb.collection("homeStorageSync").doc(getSyncCode());
+        subscribeToDoc();
+      }
+    }
+  }
+
+  const syncSheet = document.getElementById("syncSheet");
+  function openSyncSheet(){
+    showCustomConfigForm = false;
+    renderSyncBody();
+    overlay.classList.add("show");
+    syncSheet.classList.add("show");
+  }
+  function closeSyncSheet(){
+    overlay.classList.remove("show");
+    syncSheet.classList.remove("show");
+  }
+  document.getElementById("syncBtn").addEventListener("click", openSyncSheet);
+  document.getElementById("closeSyncSheetBtn").addEventListener("click", closeSyncSheet);
+  overlay.addEventListener("click", closeSyncSheet);
+
+  // ---------- init ----------
+  loadItems();
+  loadCategories();
+  render();
+  updateSyncDot();
+  if(isConfigured() && getSyncCode()){
+    if(initFirebaseApp()){
+      fbDocRef = fbDb.collection("homeStorageSync").doc(getSyncCode());
+      subscribeToDoc();
+    }
+  }
+})();
+</script>
+</body>
+</html>
